@@ -4,6 +4,13 @@ All notable changes to the "zed-beancount-formatter" extension will be documente
 
 ## [Unreleased]
 
+- 收紧空行：记录之间保证恰好一个空行（连续空行压成一个、缺失的补上），
+  文件首尾不留空行；判断依据是「列 0 开始的日期行」，posting / 元数据 /
+  缩进注释不论有多少行都算同一条记录，不会被拆开
+- 新增 `-i` / `--in-place`：原地格式化文件（临时文件 + rename，可重复执行）；
+  不带 `-i` 时可直接把文件路径当参数，结果输出到 stdout
+- 修复：输出末尾换行被重复追加，导致每次格式化多出一行空行（对 Zed 的
+  format-on-save 是致命缺陷）
 - 新增拼音首字母补全：patches/pinyin-completion.patch 给 beancount-language-server
   的 payee/narration 补全加上声母缩写匹配（cg -> 餐馆），对应原扩展的
   beancount.inputMethods: ["pinyin"]

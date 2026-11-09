@@ -21,8 +21,7 @@
     "beancount-format": "./out/cli.js"
   },
   "files": [
-    "out/cli.js",
-    "out/format.js"
+    "out/*.js"
   ],
   "scripts": {
     "build": "tsc -p ./",

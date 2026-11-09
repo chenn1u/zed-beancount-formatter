@@ -66,6 +66,7 @@ All options are CLI flags, appended to `arguments`:
 | `-W`, `--num-width <n>` | numWidth | Use this width to render numbers instead of determining an optimal value. |
 | `-c`, `--currency-column <n>` | currencyColumn | Align currencies in this column. |
 | `-s`, `--separator-column <n>` | – | Switch to Lencerf-style alignment: align the decimal **separator** at this column (default in the original extension: 50). Overrides the three options above. |
+| `-i`, `--in-place` | – | Rewrite the given files instead of printing to stdout. |
 | `--fixed-cjk-width` | fixedCJKWidth | Treat CJK aka East Asian characters as two letters wide. |
 
 Without `-s` the formatter uses beancount's `format.py` semantics (prefix width + currency column).
@@ -83,12 +84,59 @@ Prefer to keep the settings in the project? Zed reads `.zed/settings.json` in th
 Note: if `beancount-language-server` is installed, the Beancount extension also attaches an LSP
 that can format. Setting `"formatter": {"external": ...}` makes this formatter authoritative.
 
+### Strict blank lines
+
+Everything the formatter emits is tightened up before it is written back:
+
+- exactly one blank line **between** records: runs of blank lines are collapsed to one, and a
+  missing blank line is inserted
+- no blank lines at the start or the end of the file
+- a file that ends without a final newline keeps it that way
+
+A record is anything that starts at column 0 with a date. Every indented line below it — however
+many postings, metadata fields and indented comments — belongs to that record, so the formatter
+never splits a transaction regardless of its length. A top-level `;` comment directly above a
+record stays attached to it. `include` / `option` / `plugin` lines are left adjacent.
+
+The result is idempotent: formatting twice gives the same bytes.
+
+```
+2026-10-03 * "京东" "三餐"
+    Expenses:Food:三餐                                                   21.42 CNY
+    Liabilities:CreditCard:支付白
+
+2026-10-03 * "充电桩" "充电"
+    Expenses:Daily:充电                                                   0.71 CNY
+    Liabilities:CreditCard:支付白
+```
+
 ## Usage on the command line
 
+The CLI reads stdin and writes stdout by default, which makes it safe to pipe and diff.
+
 ```sh
-bean-format < ledger.bean > formatted.bean
-bean-format --separator-column 50 --fixed-cjk-width < ledger.bean > aligned.bean
+# preview: stdin -> stdout, nothing written
+beancount-format -c 80 --fixed-cjk-width < ledger.bean
+
+# preview a file
+beancount-format -c 80 --fixed-cjk-width ledger.bean > /tmp/preview.bean
+diff ledger.bean /tmp/preview.bean
+
+# rewrite files in place (atomic: temp file + rename, idempotent)
+beancount-format -i -c 80 --fixed-cjk-width ledger.bean account/*.bean
+
+# whole journal
+cd ~/Projects/Beancount && beancount-format -i -c 80 --fixed-cjk-width $(git ls-files '*.bean')
 ```
+
+`beancount-format` only exists after `npm install -g .`; otherwise call the script directly:
+
+```sh
+node /path/to/zed-beancount-formatter/out/cli.js -i -c 80 --fixed-cjk-width ledger.bean
+```
+
+Never do `beancount-format ledger.bean > ledger.bean` — the shell truncates the file before the command runs.
+Use `-i`, which writes to a temp file first.
 
 ## Migrating from Lencerf/vscode-beancount
 
