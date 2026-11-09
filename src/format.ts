@@ -228,7 +228,7 @@ function alignBeancount(
  * @param fixedCJKWidth whether to treat CJK aka East Asian characters as two letters width
  * @returns prefix width
  */
-function getPrefixWidth(prefix: string, fixedCJKWidth?: boolean): number {
+export function getPrefixWidth(prefix: string, fixedCJKWidth?: boolean): number {
   if (!fixedCJKWidth) {
     return prefix.length;
   }

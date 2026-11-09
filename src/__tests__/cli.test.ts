@@ -20,6 +20,11 @@ test('parseArgs short options', () => {
   });
 });
 
+test('parseArgs separatorColumn', () => {
+  expect(parseArgs(['-s', '50', '--fixed-cjk-width'])).toEqual({ separatorColumn: 50, fixedCJKWidth: true });
+  expect(parseArgs(['--separator-column', '60'])).toEqual({ separatorColumn: 60 });
+});
+
 test('parseArgs rejects bad input', () => {
   expect(() => parseArgs(['--nope'])).toThrow('unknown argument');
   expect(() => parseArgs(['-w'])).toThrow('invalid value');

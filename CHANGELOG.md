@@ -2,6 +2,11 @@
 
 All notable changes to the "zed-beancount-formatter" extension will be documented in this file.
 
+## [Unreleased]
+
+- 新增 `-s` / `--separator-column`：移植 Lencerf/vscode-beancount 的小数点对齐算法
+- README 增加 Lencerf/vscode-beancount 的配置与功能迁移对照表
+
 ## [1.5.0] - 2025-02-08
 
 - Support arithmetic expression as amount #21, thanks [@silverwzw](https://github.com/silverwzw)
