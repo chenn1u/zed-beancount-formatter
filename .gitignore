@@ -3,7 +3,3 @@ node_modules
 .vscode-test/
 *.vsix
 .eslintcache
-
-# 拼音 LSP 的本地构建产物
-.build/
-bin/

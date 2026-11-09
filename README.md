@@ -1,9 +1,11 @@
 # zed-beancount-formatter
 
-Beancount file formatter for [Zed](https://zed.dev).
+Beancount file formatter for [Zed](https://zed.dev) and its forks.
 
-Zed's extension API cannot register formatters, so this project ships a stdin → stdout
-CLI and plugs into Zed's built-in [external formatter](https://zed.dev/docs/configuring-languages) support.
+Zed's extension API cannot register formatters, so this project ships a small CLI that reads stdin and
+writes stdout, and plugs into Zed's built-in
+[external formatter](https://zed.dev/docs/configuring-languages) support. Language support itself comes
+from the `Beancount` extension in the Zed gallery.
 
 ## Install
 
@@ -13,9 +15,9 @@ cd zed-beancount-formatter
 yarn install && yarn build
 ```
 
-That is all you need — `out/cli.js` is a self-contained Node script.
+`out/cli.js` is then self-contained — no runtime dependencies.
 
-Global install (puts `beancount-format` on your `PATH`):
+Optional, to get a `beancount-format` command on your `PATH`:
 
 ```sh
 npm install -g .
@@ -23,8 +25,9 @@ npm install -g .
 
 ## Configure Zed
 
-1. Install the `Beancount` extension from the Zed extension gallery (it registers `*.bean` / `*.beancount`).
-2. Add a `languages` entry to `~/.config/zed/settings.json` (`cmd-,` → Open JSON Settings):
+1. Install the `Beancount` extension from the Zed gallery (it registers `*.bean` / `*.beancount`).
+2. Add a `languages` entry to your settings file (`cmd-,` → Open JSON Settings). Zed uses
+   `~/.config/zed/settings.json`; forks use their own directory, e.g. `~/.config/wu/settings.json`.
 
 ```jsonc
 {
@@ -34,8 +37,8 @@ npm install -g .
       "formatter": {
         "external": {
           "command": "node",
-          // replace with the absolute path of out/cli.js
-          "arguments": ["/path/to/zed-beancount-formatter/out/cli.js"]
+          // absolute path of out/cli.js
+          "arguments": ["/path/to/zed-beancount-formatter/out/cli.js", "-c", "80", "--fixed-cjk-width"]
         }
       }
     }
@@ -43,62 +46,49 @@ npm install -g .
 }
 ```
 
-With a global install the command becomes:
+With a global install the command becomes `"command": "beancount-format", "arguments": ["-c", "80", "--fixed-cjk-width"]`.
 
-```jsonc
-"formatter": {
-  "external": {
-    "command": "beancount-format",
-    "arguments": []
-  }
-}
-```
+Format manually with `cmd-shift-i` (macOS) / `ctrl-shift-i` (Linux, Windows). Project-local settings go in
+`.zed/settings.json` instead of the global file.
 
-Format manually with `cmd-shift-i` (macOS) / `ctrl-shift-i` (Linux, Windows).
-
-### Settings
+## Settings
 
 All options are CLI flags, appended to `arguments`:
 
-| Flag | Property | Description |
-| --- | --- | --- |
-| `-w`, `--prefix-width <n>` | prefixWidth | Use this prefix width instead of determining an optimal value automatically. |
-| `-W`, `--num-width <n>` | numWidth | Use this width to render numbers instead of determining an optimal value. |
-| `-c`, `--currency-column <n>` | currencyColumn | Align currencies in this column. |
-| `-s`, `--separator-column <n>` | – | Switch to Lencerf-style alignment: align the decimal **separator** at this column (default in the original extension: 50). Overrides the three options above. |
-| `-i`, `--in-place` | – | Rewrite the given files instead of printing to stdout. |
-| `--fixed-cjk-width` | fixedCJKWidth | Treat CJK aka East Asian characters as two letters wide. |
+| Flag | Description |
+| --- | --- |
+| `-c`, `--currency-column <n>` | Align currencies in this column. |
+| `-w`, `--prefix-width <n>` | Use this account-name width instead of picking a value from the file. |
+| `-W`, `--num-width <n>` | Use this amount width instead of picking a value from the file. |
+| `-s`, `--separator-column <n>` | Switch to decimal-separator alignment at this column (see below). |
+| `--fixed-cjk-width` | Treat CJK aka East Asian characters as two columns wide. |
+| `-i`, `--in-place` | Rewrite the given files instead of printing to stdout. |
 
-Without `-s` the formatter uses beancount's `format.py` semantics (prefix width + currency column).
-With `-s` it uses the alignment algorithm of
-[Lencerf/vscode-beancount](https://github.com/Lencerf/vscode-beancount) instead.
+There are two alignment styles and you pick one:
 
-Example:
+- **default** — beancount's `format.py` semantics: account names padded, amounts right-aligned, currencies
+  lined up at `-c`.
+- **`-s`** — decimal points lined up at a fixed column instead. This is the algorithm of
+  [Lencerf/vscode-beancount](https://github.com/Lencerf/vscode-beancount)'s `separatorColumn`, and it
+  overrides `-c` / `-w` / `-W`.
 
-```jsonc
-"arguments": ["/path/to/out/cli.js", "--fixed-cjk-width", "--currency-column", "60"]
-```
+`--fixed-cjk-width` applies to both.
 
-Prefer to keep the settings in the project? Zed reads `.zed/settings.json` in the project root.
+## Strict blank lines
 
-Note: if `beancount-language-server` is installed, the Beancount extension also attaches an LSP
-that can format. Setting `"formatter": {"external": ...}` makes this formatter authoritative.
+Whatever the formatter emits is tightened up before it is written back:
 
-### Strict blank lines
-
-Everything the formatter emits is tightened up before it is written back:
-
-- exactly one blank line **between** records: runs of blank lines are collapsed to one, and a
-  missing blank line is inserted
+- exactly one blank line **between** records: runs of blank lines are collapsed to one, and a missing
+  blank line is inserted
 - no blank lines at the start or the end of the file
 - a file that ends without a final newline keeps it that way
 
-A record is anything that starts at column 0 with a date. Every indented line below it — however
-many postings, metadata fields and indented comments — belongs to that record, so the formatter
-never splits a transaction regardless of its length. A top-level `;` comment directly above a
-record stays attached to it. `include` / `option` / `plugin` lines are left adjacent.
+A record is anything that starts at column 0 with a date. Every indented line below it — however many
+postings, metadata fields and indented comments — belongs to that record, so a transaction is never split
+regardless of its length. A top-level `;` comment directly above a record stays attached to it, and
+`include` / `option` / `plugin` lines are left adjacent.
 
-The result is idempotent: formatting twice gives the same bytes.
+The result is idempotent: formatting twice yields the same bytes.
 
 ```
 2026-10-03 * "京东" "三餐"
@@ -110,154 +100,42 @@ The result is idempotent: formatting twice gives the same bytes.
     Liabilities:CreditCard:支付白
 ```
 
-## Usage on the command line
+## Command line
 
-The CLI reads stdin and writes stdout by default, which makes it safe to pipe and diff.
+Without file arguments the CLI reads stdin and writes stdout, which is what the editor calls.
 
 ```sh
-# preview: stdin -> stdout, nothing written
+# preview: nothing is written
 beancount-format -c 80 --fixed-cjk-width < ledger.bean
+beancount-format -c 80 --fixed-cjk-width ledger.bean > /tmp/preview.bean && diff ledger.bean /tmp/preview.bean
 
-# preview a file
-beancount-format -c 80 --fixed-cjk-width ledger.bean > /tmp/preview.bean
-diff ledger.bean /tmp/preview.bean
-
-# rewrite files in place (atomic: temp file + rename, idempotent)
+# rewrite in place (temp file + rename, safe to repeat)
 beancount-format -i -c 80 --fixed-cjk-width ledger.bean account/*.bean
 
 # whole journal
 cd ~/Projects/Beancount && beancount-format -i -c 80 --fixed-cjk-width $(git ls-files '*.bean')
 ```
 
-`beancount-format` only exists after `npm install -g .`; otherwise call the script directly:
+Without a global install, call the script directly:
 
 ```sh
 node /path/to/zed-beancount-formatter/out/cli.js -i -c 80 --fixed-cjk-width ledger.bean
 ```
 
-Never do `beancount-format ledger.bean > ledger.bean` — the shell truncates the file before the command runs.
-Use `-i`, which writes to a temp file first.
-
-## Migrating from Lencerf/vscode-beancount
-
-This project only covers the text-transformation half of
-[Lencerf/vscode-beancount](https://github.com/Lencerf/vscode-beancount).
-Everything else in that extension is built on VS Code provider APIs (completion, hover, diagnostics,
-code actions, inlay hints), which Zed's extension API cannot register — in Zed those come from a
-language server instead. Zed already ships a `Beancount` extension that spawns
-[`beancount-language-server`](https://github.com/polarmutex/beancount-language-server).
-
-### Settings
-
-| Lencerf setting | Default | Zed equivalent |
-| --- | --- | --- |
-| `beancount.separatorColumn` | `50` | `-s` / `--separator-column` |
-| `beancount.fixedCJKWidth` | `false` | `--fixed-cjk-width` (both alignment styles) |
-| `beancount.mainBeanFile` | `""` | `journal_file` init option of the language server (see below) |
-| `beancount.flagWarnings` | per-flag severity map | `diagnostic_flags` init option of the language server; per-flag severity has no equivalent |
-| `beancount.favaPath` | `"fava"` | `command` of a Zed task (see below) |
-| `beancount.runFavaOnActivate` | `false` | no equivalent — run the task manually |
-| `beancount.instantAlignment` | `true` | no equivalent — Zed has no `onDidChangeTextDocument` hook; use format-on-save |
-| `beancount.completePayeeNarration` | `true` | no equivalent — the language server always completes payees/narrations |
-| `beancount.python3Path` | `"python3"` | no equivalent — the language server is Rust and spawns `beancount` itself |
-| `beancount.inputMethods` | `[]` | no equivalent — pinyin completion depends on a VS Code completion provider |
-| `beancount.inlayHints` | `true` | provided by the language server (balancing amount + unbalanced warnings) |
-
-### Features
-
-| Lencerf feature | Zed equivalent |
-| --- | --- |
-| Formatting / `separatorColumn` alignment | this CLI via the external formatter |
-| Completion (accounts, payees, narrations, dates, tags, links) | `beancount-language-server` |
-| Diagnostics from `beancheck.py` | `beancount-language-server` |
-| Inlay hints (inferred amount) | `beancount-language-server` |
-| Rename, find references, document highlight | `beancount-language-server` |
-| Hover, document symbols, go to definition | not implemented by the language server yet |
-| `Flag as okay` quick fix | not implemented by the language server yet |
-| Document links for `include` | no equivalent |
-| Enter after a transaction inserts tab-width spaces | no equivalent |
-| Run Fava | Zed task |
-
-### Language server settings
-
-```jsonc
-{
-  "lsp": {
-    "beancount-language-server": {
-      "initialization_options": {
-        "journal_file": "/abs/path/main.bean",
-        "diagnostic_flags": ["!"]
-      }
-    }
-  }
-}
-```
-
-### Running Fava
-
-`.zed/tasks.json` in the project root:
-
-```jsonc
-[
-  {
-    "label": "fava",
-    "command": "fava",
-    "args": ["main.bean"],
-    "cwd": "$ZED_WORKTREE_ROOT"
-  }
-]
-```
-
-Run it with `task: spawn`.
-
-## Pinyin initials completion (opt-in)
-
-This replaces `beancount.inputMethods: ["pinyin"]` from Lencerf/vscode-beancount.
-`beancount-language-server` has no pinyin support upstream, so [patches/pinyin-completion.patch](patches/pinyin-completion.patch)
-adds it to its payee/narration completion:
-
-```
-2025-01-02 * "cg          →   cg(餐馆)   inserts: 餐馆"
-```
-
-Only **initials** are matched (`cg` for 餐馆), never full pinyin (`canguan` does not match) — same as the
-original extension, which maps every CJK character to a single initial letter.
-
-### Build
-
-Requires Rust 1.92 or newer.
-
-```sh
-./scripts/build-pinyin-lsp.sh          # → bin/beancount-language-server
-node scripts/verify-pinyin-lsp.mjs     # drives a real LSP session and asserts cg → 餐馆
-```
-
-### Point Zed at it
-
-The official `Beancount` extension uses the binary path from settings when present:
-
-```jsonc
-{
-  "lsp": {
-    "beancount-language-server": {
-      "binary": { "path": "/abs/path/zed-beancount-formatter/bin/beancount-language-server" }
-    }
-  }
-}
-```
-
-Upstream releases keep having no pinyin support, so the binary path must stay pointed at this build.
-The upstream commit is pinned at the top of `scripts/build-pinyin-lsp.sh`; bump it and regenerate the
-patch when upgrading.
+Never write `beancount-format ledger.bean > ledger.bean` — the shell truncates the file before the command
+runs. Use `-i`.
 
 ## Development
 
-- [format.ts](src/format.ts) was rewritten from beancount's [format.py](https://github.com/beancount/beancount/blob/master/beancount/scripts/format.py)
-- [align.ts](src/align.ts) ports the `separatorColumn` alignment of [Lencerf/vscode-beancount](https://github.com/Lencerf/vscode-beancount/blob/master/src/formatter.ts)
-- [patches/pinyin-completion.patch](patches/pinyin-completion.patch) adds pinyin initials to `beancount-language-server`
-- [cli.ts](src/cli.ts) is the stdin → stdout wrapper used by Zed
-- `yarn test` runs the test cases copied from [format_test.py](https://github.com/beancount/beancount/blob/master/beancount/scripts/format_test.py)
-- The test helper `helper.ts` depends on the `bean-format` command, so `beancount` must be installed with pip
+| File | Purpose |
+| --- | --- |
+| [src/format.ts](src/format.ts) | Port of beancount's [format.py](https://github.com/beancount/beancount/blob/master/beancount/scripts/format.py) |
+| [src/align.ts](src/align.ts) | Decimal-separator alignment (`-s`), ported from [Lencerf/vscode-beancount](https://github.com/Lencerf/vscode-beancount/blob/master/src/formatter.ts) |
+| [src/tidy.ts](src/tidy.ts) | Blank-line rules |
+| [src/cli.ts](src/cli.ts) | Argument parsing, stdin/stdout and in-place handling |
+
+`yarn build`, `yarn test`, `yarn lint`. The tests in `format.test.ts` compare against the real
+`bean-format` command, so `beancount` must be installed for those to pass.
 
 ## License
 
