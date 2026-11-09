@@ -1,31 +1,95 @@
-# vscode-beancount-formatter
+# zed-beancount-formatter
 
-beancount formatter extension for VS Code
+Beancount file formatter for [Zed](https://zed.dev).
 
-## Extension Settings
+Zed's extension API cannot register formatters, so this project ships a stdin → stdout
+CLI and plugs into Zed's built-in [external formatter](https://zed.dev/docs/configuring-languages) support.
 
-- `beancountFormatter.prefixWidth`: Use this prefix width instead of determining an optimal value automatically.
-- `beancountFormatter.numWidth`: Use this width to render numbers instead of determining an optimal value.
-- `beancountFormatter.currencyColumn`: Align currencies in this column.
-- `beancountFormatter.fixedCJKWidth`: Set `true` to treat CJK aka East Asian characters as two letters width.
+## Install
 
-## Usage
+```sh
+git clone https://github.com/chenn1u/zed-beancount-formatter.git
+cd zed-beancount-formatter
+yarn install && yarn build
+```
 
-> extension will be activated when open `*.bean` or `*.beancount` file.
+That is all you need — `out/cli.js` is a self-contained Node script.
 
-Files can be formatted on-demand by right-clicking in the document and selecting Format Document in the editor context menu, by using the associated keyboard shortcut, or by running command Format Document from the Command Palette.
+Global install (puts `beancount-format` on your `PATH`):
 
-Default keyboard shortcuts for Format Document command:
+```sh
+npm install -g .
+```
 
-- macOS: **Shift+Alt+F**
-- Linux: **Ctrl+Shift+I**
-- Windows: **Shift+Alt+F**
+## Configure Zed
+
+1. Install the `Beancount` extension from the Zed extension gallery (it registers `*.bean` / `*.beancount`).
+2. Add a `languages` entry to `~/.config/zed/settings.json` (`cmd-,` → Open JSON Settings):
+
+```jsonc
+{
+  "languages": {
+    "Beancount": {
+      "format_on_save": "on",
+      "formatter": {
+        "external": {
+          "command": "node",
+          // replace with the absolute path of out/cli.js
+          "arguments": ["/path/to/zed-beancount-formatter/out/cli.js"]
+        }
+      }
+    }
+  }
+}
+```
+
+With a global install the command becomes:
+
+```jsonc
+"formatter": {
+  "external": {
+    "command": "beancount-format",
+    "arguments": []
+  }
+}
+```
+
+Format manually with `cmd-shift-i` (macOS) / `ctrl-shift-i` (Linux, Windows).
+
+### Settings
+
+All options are CLI flags, appended to `arguments`:
+
+| Flag | Property | Description |
+| --- | --- | --- |
+| `-w`, `--prefix-width <n>` | prefixWidth | Use this prefix width instead of determining an optimal value automatically. |
+| `-W`, `--num-width <n>` | numWidth | Use this width to render numbers instead of determining an optimal value. |
+| `-c`, `--currency-column <n>` | currencyColumn | Align currencies in this column. |
+| `--fixed-cjk-width` | fixedCJKWidth | Treat CJK aka East Asian characters as two letters wide. |
+
+Example:
+
+```jsonc
+"arguments": ["/path/to/out/cli.js", "--fixed-cjk-width", "--currency-column", "60"]
+```
+
+Prefer to keep the settings in the project? Zed reads `.zed/settings.json` in the project root.
+
+Note: if `beancount-language-server` is installed, the Beancount extension also attaches an LSP
+that can format. Setting `"formatter": {"external": ...}` makes this formatter authoritative.
+
+## Usage on the command line
+
+```sh
+bean-format < ledger.bean > formatted.bean
+```
 
 ## Development
 
-- [format.ts](src/format.ts) was rewrite from beancount's [format.py](https://github.com/beancount/beancount/blob/master/beancount/scripts/format.py)
-- `yarn test` run testCase copy from [format_test.py](https://github.com/beancount/beancount/blob/master/beancount/scripts/format_test.py)
-- The test helper file `helper.ts` depends on `bean-format` command, so you need to install `beancount` with pip
+- [format.ts](src/format.ts) was rewritten from beancount's [format.py](https://github.com/beancount/beancount/blob/master/beancount/scripts/format.py)
+- [cli.ts](src/cli.ts) is the stdin → stdout wrapper used by Zed
+- `yarn test` runs the test cases copied from [format_test.py](https://github.com/beancount/beancount/blob/master/beancount/scripts/format_test.py)
+- The test helper `helper.ts` depends on the `bean-format` command, so `beancount` must be installed with pip
 
 ## License
 

@@ -17,10 +17,9 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: '14.x'
-      - name: lint, build, test and package
+      - name: lint, build and test
         run: |
-          npm install -g vsce
           yarn install
           yarn lint
+          yarn build
           yarn test
-          vsce package

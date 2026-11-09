@@ -1,6 +1,6 @@
 # Change Log
 
-All notable changes to the "vscode-beancount-formatter" extension will be documented in this file.
+All notable changes to the "zed-beancount-formatter" extension will be documented in this file.
 
 ## [1.5.0] - 2025-02-08
 
