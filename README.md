@@ -162,10 +162,51 @@ language server instead. Zed already ships a `Beancount` extension that spawns
 
 Run it with `task: spawn`.
 
+## Pinyin initials completion (opt-in)
+
+This replaces `beancount.inputMethods: ["pinyin"]` from Lencerf/vscode-beancount.
+`beancount-language-server` has no pinyin support upstream, so [patches/pinyin-completion.patch](patches/pinyin-completion.patch)
+adds it to its payee/narration completion:
+
+```
+2025-01-02 * "cg          →   cg(餐馆)   inserts: 餐馆"
+```
+
+Only **initials** are matched (`cg` for 餐馆), never full pinyin (`canguan` does not match) — same as the
+original extension, which maps every CJK character to a single initial letter.
+
+### Build
+
+Requires Rust 1.92 or newer.
+
+```sh
+./scripts/build-pinyin-lsp.sh          # → bin/beancount-language-server
+node scripts/verify-pinyin-lsp.mjs     # drives a real LSP session and asserts cg → 餐馆
+```
+
+### Point Zed at it
+
+The official `Beancount` extension uses the binary path from settings when present:
+
+```jsonc
+{
+  "lsp": {
+    "beancount-language-server": {
+      "binary": { "path": "/abs/path/zed-beancount-formatter/bin/beancount-language-server" }
+    }
+  }
+}
+```
+
+Upstream releases keep having no pinyin support, so the binary path must stay pointed at this build.
+The upstream commit is pinned at the top of `scripts/build-pinyin-lsp.sh`; bump it and regenerate the
+patch when upgrading.
+
 ## Development
 
 - [format.ts](src/format.ts) was rewritten from beancount's [format.py](https://github.com/beancount/beancount/blob/master/beancount/scripts/format.py)
 - [align.ts](src/align.ts) ports the `separatorColumn` alignment of [Lencerf/vscode-beancount](https://github.com/Lencerf/vscode-beancount/blob/master/src/formatter.ts)
+- [patches/pinyin-completion.patch](patches/pinyin-completion.patch) adds pinyin initials to `beancount-language-server`
 - [cli.ts](src/cli.ts) is the stdin → stdout wrapper used by Zed
 - `yarn test` runs the test cases copied from [format_test.py](https://github.com/beancount/beancount/blob/master/beancount/scripts/format_test.py)
 - The test helper `helper.ts` depends on the `bean-format` command, so `beancount` must be installed with pip

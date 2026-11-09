@@ -4,6 +4,10 @@ All notable changes to the "zed-beancount-formatter" extension will be documente
 
 ## [Unreleased]
 
+- 新增拼音首字母补全：patches/pinyin-completion.patch 给 beancount-language-server
+  的 payee/narration 补全加上声母缩写匹配（cg -> 餐馆），对应原扩展的
+  beancount.inputMethods: ["pinyin"]
+- 新增 scripts/build-pinyin-lsp.sh 与 scripts/verify-pinyin-lsp.mjs
 - 新增 `-s` / `--separator-column`：移植 Lencerf/vscode-beancount 的小数点对齐算法
 - README 增加 Lencerf/vscode-beancount 的配置与功能迁移对照表
 
